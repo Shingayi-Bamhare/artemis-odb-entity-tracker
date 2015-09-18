@@ -17,6 +17,7 @@ import net.namekdev.entity_tracker.network.base.Server;
 import net.namekdev.entity_tracker.network.communicator.EntityTrackerCommunicator;
 import net.namekdev.entity_tracker.utils.tuple.Tuple3;
 
+import com.artemis.Component;
 import com.artemis.utils.Bag;
 
 /**
@@ -116,10 +117,13 @@ public class EntityTrackerServer extends Server implements WorldUpdateListener {
 	}
 
 	@Override
-	public void updatedComponentState(int entityId, int componentIndex, Object[] values) {
+	public void updatedComponentState(int entityId, int componentIndex, Object valueTree) {
+		// `valueTree` is going to be serialized in next layer
+		assert valueTree instanceof Component;
+
 		for (int i = 0, n = _listeners.size(); i < n; ++i) {
 			EntityTrackerCommunicator communicator = _listeners.get(i);
-			communicator.updatedComponentState(entityId, componentIndex, values);
+			communicator.updatedComponentState(entityId, componentIndex, valueTree);
 		}
 	}
 

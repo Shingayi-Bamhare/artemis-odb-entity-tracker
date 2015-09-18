@@ -39,6 +39,6 @@ public class DummyWorldUpdateListener implements WorldUpdateListener {
 	}
 
 	@Override
-	public void updatedComponentState(int entityId, int componentIndex, Object[] values) {
+	public void updatedComponentState(int entityId, int componentIndex, Object valueTree) {
 	}
 }

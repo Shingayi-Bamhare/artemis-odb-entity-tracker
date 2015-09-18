@@ -1,11 +1,13 @@
 package net.namekdev.entity_tracker.network.communicator;
 
+import static net.namekdev.entity_tracker.utils.serialization.NetworkSerialization.*;
+
 import java.util.BitSet;
 
 import net.namekdev.entity_tracker.connectors.WorldController;
 import net.namekdev.entity_tracker.connectors.WorldUpdateListener;
 import net.namekdev.entity_tracker.model.ComponentTypeInfo;
-import net.namekdev.entity_tracker.model.FieldInfo;
+import net.namekdev.entity_tracker.utils.Array;
 import net.namekdev.entity_tracker.utils.serialization.NetworkSerializer;
 
 /**
@@ -18,6 +20,7 @@ import net.namekdev.entity_tracker.utils.serialization.NetworkSerializer;
  */
 public class EntityTrackerCommunicator extends Communicator implements WorldUpdateListener {
 	private WorldController _worldController;
+	private final Array<ComponentTypeInfo> _componentTypes = new Array<>();
 
 
 	@Override
@@ -42,9 +45,16 @@ public class EntityTrackerCommunicator extends Communicator implements WorldUpda
 			case TYPE_SET_COMPONENT_FIELD_VALUE: {
 				int entityId = _deserializer.readInt();
 				int componentIndex = _deserializer.readInt();
-				int fieldIndex = _deserializer.readInt();
 				Object value = _deserializer.readSomething(true);
-				_worldController.setComponentFieldValue(entityId, componentIndex, fieldIndex, value);
+
+				int size = _deserializer.beginArray(TYPE_INT);
+				int[] treePath = new int[] { size };
+
+				for (int i = 0; i < size; ++i) {
+					treePath[i] = _deserializer.readInt();
+				}
+
+				_worldController.setComponentFieldValue(entityId, componentIndex, treePath, value);
 				break;
 			}
 
@@ -85,25 +95,13 @@ public class EntityTrackerCommunicator extends Communicator implements WorldUpda
 
 	@Override
 	public void addedComponentType(int index, ComponentTypeInfo info) {
+		_componentTypes.set(index, info);
+
 		NetworkSerializer p =
 			beginPacket(TYPE_ADDED_COMPONENT_TYPE)
 			.addInt(index)
 			.addString(info.name)
-			.beginArray(info.fields.size());
-
-		FieldInfo field;
-		for (int i = 0, n = info.fields.size(); i < n; ++i) {
-			field = info.fields.get(i);
-			p.addBoolean(field.isAccessible);
-			p.addString(field.fieldName);
-			p.addString(field.classType);
-			p.addBoolean(field.isArray);
-			p.addByte(field.valueType);
-
-			if (field.treeDesc != null) {
-				// TODO serialize it
-			}
-		}
+			.addObjectDescription(info.model, index);
 
 		send(p);
 	}
@@ -136,16 +134,12 @@ public class EntityTrackerCommunicator extends Communicator implements WorldUpda
 	}
 
 	@Override
-	public void updatedComponentState(int entityId, int componentIndex, Object[] values) {
+	public void updatedComponentState(int entityId, int componentIndex, Object valueTree) {
 		NetworkSerializer p =
 			beginPacket(TYPE_UPDATED_COMPONENT_STATE)
 			.addInt(entityId)
 			.addInt(componentIndex)
-			.beginArray(values.length);
-
-		for (int i = 0, n = values.length; i < n; ++i) {
-			p.addSomething(values[i], true);
-		}
+			.addObject(_componentTypes.get(componentIndex).model, valueTree);
 
 		send(p);
 	}
